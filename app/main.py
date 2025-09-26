@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
-from .models import AskRequest, AskResponse
-from .db import get_engine, initialize_dirty_schema, fetch_schema_snapshot, run_select_sql
+from .models import AskRequest, AskResponse, UploadResponse
+from .db import (
+    get_engine,
+    get_dataset_engine,
+    initialize_dirty_schema,
+    fetch_schema_snapshot,
+    run_select_sql,
+    ingest_excel_to_dataset,
+)
 from .ai import (
     generate_sql_from_question,
     repair_sql_on_error,
@@ -39,14 +46,15 @@ def on_startup() -> None:
 @app.post("/ask", response_model=AskResponse)
 def ask(request: AskRequest) -> AskResponse:
     try:
-        schema_snapshot = fetch_schema_snapshot(ENGINE)
+        dataset_engine = get_dataset_engine(request.dataset_id)
+        schema_snapshot = fetch_schema_snapshot(dataset_engine)
         sql = generate_sql_from_question(request.question, schema_snapshot)
         try:
-            columns, data = run_select_sql(ENGINE, sql)
+            columns, data = run_select_sql(dataset_engine, sql)
         except Exception as e:  # noqa: BLE001
             # Attempt a single repair using the error text
             repaired_sql = repair_sql_on_error(request.question, schema_snapshot, sql, str(e))
-            columns, data = run_select_sql(ENGINE, repaired_sql)
+            columns, data = run_select_sql(dataset_engine, repaired_sql)
             sql = repaired_sql
 
         cleaned_cols, cleaned_data = clean_tabular_data(columns, data)
@@ -68,3 +76,21 @@ def ask(request: AskRequest) -> AskResponse:
 
 def get_app() -> FastAPI:
     return app
+
+
+@app.post("/upload", response_model=UploadResponse)
+async def upload(file: UploadFile = File(...)) -> UploadResponse:
+    try:
+        suffix = ".xlsx"
+        from pathlib import Path
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            content = await file.read()
+            tmp.write(content)
+            tmp_path = Path(tmp.name)
+
+        dataset_id, tables = ingest_excel_to_dataset(tmp_path)
+        return UploadResponse(dataset_id=dataset_id, tables=tables, note=f"Parsed {len(tables)} sheet(s)")
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"Failed to ingest file: {e}")

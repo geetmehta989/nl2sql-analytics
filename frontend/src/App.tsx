@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { askQuestion, AskResponse } from './lib/api';
+import { askQuestion, AskResponse, uploadExcel, UploadResponse } from './lib/api';
 import { DataTable } from './components/DataTable';
 import { ChartPanel } from './components/ChartPanel';
 
@@ -9,17 +9,18 @@ export const App: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [dataset, setDataset] = useState<UploadResponse | null>(null);
   const baseUrl = useMemo(() => (import.meta.env.VITE_API_BASE_URL || '/api') as string, []);
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function onSend() {
     const q = input.trim();
-    if (!q || loading) return;
+    if (!q || loading || !dataset) return;
     setInput('');
     setMessages((m) => [...m, { role: 'user', content: q }]);
     setLoading(true);
     try {
-      const res = await askQuestion(q, baseUrl);
+      const res = await askQuestion(q, dataset.dataset_id, baseUrl);
       const summary = res.explanation || 'Results ready.';
       setMessages((m) => [...m, { role: 'assistant', content: summary, meta: res }]);
     } catch (e: any) {
@@ -27,6 +28,19 @@ export const App: React.FC = () => {
     } finally {
       setLoading(false);
       inputRef.current?.focus();
+    }
+  }
+
+  async function onUpload(file: File) {
+    setLoading(true);
+    try {
+      const info = await uploadExcel(file, baseUrl);
+      setDataset(info);
+      setMessages((m) => [...m, { role: 'assistant', content: `Dataset uploaded. Found ${info.tables.length} table(s).` }]);
+    } catch (e: any) {
+      setMessages((m) => [...m, { role: 'assistant', content: `Upload error: ${e?.message || 'failed'}` }]);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -62,6 +76,17 @@ export const App: React.FC = () => {
         </div>
 
         <div className="panel">
+          <div className="inputRow" style={{ alignItems: 'center' }}>
+            <input
+              type="file"
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              className="input"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); }}
+            />
+            <div style={{ color: '#9aa4b2', fontSize: 12 }}>
+              {dataset ? `Dataset: ${dataset.dataset_id} (${dataset.tables.length} table${dataset.tables.length !== 1 ? 's' : ''})` : 'Upload an Excel file to begin'}
+            </div>
+          </div>
           <div className="inputRow">
             <input
               ref={inputRef}
@@ -71,7 +96,7 @@ export const App: React.FC = () => {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') onSend(); }}
             />
-            <button className="button" onClick={onSend} disabled={loading || !input.trim()}>
+            <button className="button" onClick={onSend} disabled={loading || !input.trim() || !dataset}>
               {loading ? 'Sending…' : 'Send'}
             </button>
           </div>

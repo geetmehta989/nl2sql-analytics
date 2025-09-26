@@ -7,6 +7,8 @@ from typing import Any, Dict, List, Tuple
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine, Row
+import pandas as pd
+import uuid
 
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/workspace/data")).resolve()
@@ -18,6 +20,14 @@ def get_engine() -> Engine:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     engine = create_engine(SQLALCHEMY_URL, future=True)
     return engine
+
+
+def get_dataset_engine(dataset_id: str) -> Engine:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    ds_dir = DATA_DIR / "datasets"
+    ds_dir.mkdir(parents=True, exist_ok=True)
+    db_file = ds_dir / f"{dataset_id}.db"
+    return create_engine(f"sqlite:///{db_file}", future=True)
 
 
 def initialize_dirty_schema(engine: Engine) -> None:
@@ -142,3 +152,52 @@ def run_select_sql(engine: Engine, sql: str) -> Tuple[List[str], List[Dict[str, 
             mapping = row._mapping
             data.append({col: mapping[col] for col in columns})
         return columns, data
+
+
+def _clean_name(name: str) -> str:
+    import re
+    cleaned = re.sub(r"[^0-9a-zA-Z_]+", "_", str(name)).strip("_")
+    cleaned = re.sub(r"__+", "_", cleaned)
+    return cleaned.lower() or "col"
+
+
+def ingest_excel_to_dataset(file_path: Path) -> Tuple[str, List[str]]:
+    """
+    Read an Excel file (any number of sheets) and write each sheet to a SQLite DB
+    dedicated to this dataset. Returns (dataset_id, table_names).
+    - Cleans sheet names for table names
+    - Cleans column names; fills unnamed columns as col1/col2...
+    - Coerces mixed dtypes best-effort via pandas
+    """
+    dataset_id = uuid.uuid4().hex[:12]
+    engine = get_dataset_engine(dataset_id)
+
+    xls = pd.ExcelFile(file_path)
+    table_names: List[str] = []
+    with engine.begin() as connection:
+        for sheet_name in xls.sheet_names:
+            df = xls.parse(sheet_name)
+            # Ensure columns are strings and handled if unnamed
+            columns = list(df.columns)
+            new_cols: List[str] = []
+            for idx, c in enumerate(columns):
+                col_name = c if isinstance(c, str) and c.strip() else f"col{idx+1}"
+                new_cols.append(_clean_name(col_name))
+            df.columns = new_cols
+
+            table_name = _clean_name(sheet_name) or "sheet"
+            # Avoid collisions by appending index if necessary
+            base = table_name
+            n = 1
+            while True:
+                try:
+                    df.head(0).to_sql(base if n == 1 else f"{base}_{n}", connection, index=False, if_exists="fail")
+                    table_name = base if n == 1 else f"{base}_{n}"
+                    break
+                except Exception:
+                    n += 1
+            # Write fully now (replace empty header with actual data)
+            df.to_sql(table_name, connection, index=False, if_exists="replace")
+            table_names.append(table_name)
+
+    return dataset_id, table_names
