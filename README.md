@@ -18,10 +18,12 @@ This backend exposes `/upload` and `/ask` to support user-provided Excel dataset
 pip install -r requirements.txt
 ```
 
-3. Set your OpenAI API key in the environment:
+3. Set your OpenAI API key in the environment (supports OpenAI-compatible proxy via OPENAI_BASE_URL/OPENAI_MODEL):
 
 ```bash
 export OPENAI_API_KEY=sk-...yourkey...
+export OPENAI_BASE_URL=https://your-proxy.example.com # optional
+export OPENAI_MODEL=gpt-4o-mini # or your proxy model, e.g. azure/gpt-5-mini
 ```
 
 Optionally, create a `.env` file with `OPENAI_API_KEY` for local dev.

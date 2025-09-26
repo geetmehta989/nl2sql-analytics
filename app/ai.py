@@ -14,6 +14,10 @@ def _get_llm(model: str = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")) -> Chat
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY environment variable is not set.")
+    base_url = os.environ.get("OPENAI_BASE_URL")
+    # ChatOpenAI supports custom base_url for OpenAI-compatible proxies
+    if base_url:
+        return ChatOpenAI(model=model, temperature=0.1, api_key=api_key, base_url=base_url)
     return ChatOpenAI(model=model, temperature=0.1, api_key=api_key)
 
 
