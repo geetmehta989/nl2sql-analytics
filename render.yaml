@@ -9,9 +9,9 @@ services:
     envVars:
       - key: OPENAI_API_KEY
         sync: false
+      - key: OPENAI_BASE_URL
+        sync: false
+      - key: OPENAI_MODEL
+        value: azure/gpt-5-mini
       - key: DATA_DIR
         value: /opt/render/project/src/data
-    headers:
-      - path: /
-        name: Access-Control-Allow-Origin
-        value: "*"
