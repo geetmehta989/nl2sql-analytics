@@ -23,7 +23,8 @@ from .ai import (
 )
 
 
-app = FastAPI(title="NL2SQL Analytics API", version="1.0.0")
+ROOT_PATH = os.getenv("FASTAPI_ROOT_PATH", "")
+app = FastAPI(title="NL2SQL Analytics API", version="1.0.0", root_path=ROOT_PATH)
 
 # CORS for local dev and generic frontends
 app.add_middleware(
