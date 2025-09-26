@@ -6,7 +6,7 @@ export type AskResponse = {
   chart: 'bar' | 'line' | 'pie' | 'scatter' | 'table';
 };
 
-const DEFAULT_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const DEFAULT_BASE_URL = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL) || '/api';
 
 export async function askQuestion(question: string, datasetId: string, baseUrl = DEFAULT_BASE_URL): Promise<AskResponse> {
   const res = await fetch(`${baseUrl}/ask`, {

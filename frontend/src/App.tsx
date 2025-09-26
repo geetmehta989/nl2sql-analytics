@@ -52,6 +52,15 @@ export const App: React.FC = () => {
     return undefined;
   }, [messages]);
 
+  const meta: AskResponse | undefined = useMemo(() => {
+    const m = lastMeta as Partial<AskResponse> | undefined;
+    if (!m) return undefined;
+    if (typeof m.chart !== 'string') return undefined;
+    if (!Array.isArray(m.columns)) return undefined;
+    if (!Array.isArray(m.data)) return undefined;
+    return m as AskResponse;
+  }, [lastMeta]);
+
   return (
     <div className="app">
       <div className="header">
@@ -100,23 +109,23 @@ export const App: React.FC = () => {
               {loading ? 'Sending…' : 'Send'}
             </button>
           </div>
-          {lastMeta && !!lastMeta.columns && !!lastMeta.data && !!lastMeta.chart && (
+          {meta && (
             <div className="grid2">
               <div>
                 <div className="card">
                   <h3>SQL</h3>
                   <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace', fontSize: 12, whiteSpace: 'pre-wrap' }}>
-                    {lastMeta.sql}
+                    {meta.sql}
                   </div>
                 </div>
               </div>
               <div>
-                <ChartPanel chart={lastMeta.chart as any} columns={lastMeta.columns as string[]} rows={lastMeta.data as Record<string, unknown>[]} />
+                <ChartPanel chart={meta.chart} columns={meta.columns} rows={meta.data} />
               </div>
             </div>
           )}
-          {lastMeta && !!lastMeta.columns && !!lastMeta.data && (
-            <DataTable columns={lastMeta.columns as string[]} rows={lastMeta.data as Record<string, unknown>[]} />
+          {meta && (
+            <DataTable columns={meta.columns} rows={meta.data} />
           )}
           <div className="footer">Built with React, Recharts, FastAPI, and LangChain.</div>
         </div>
