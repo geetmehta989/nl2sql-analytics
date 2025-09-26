@@ -1,6 +1,9 @@
 ## FastAPI + LangChain SQL Agent Backend
 
-This backend exposes a single endpoint `/ask` that accepts a natural language question, generates a SQL query (robust to dirty schema/table/column names), executes it against a local SQLite database, and returns:
+This backend exposes `/upload` and `/ask` to support user-provided Excel datasets:
+
+- POST `/upload` (multipart form-data): accepts an Excel file (`.xlsx`), ingests all sheets into a dataset-specific SQLite DB, and returns `dataset_id` and `tables`.
+- POST `/ask`: accepts `{ question, dataset_id }`, generates SQL against that dataset only, executes it, and returns:
 
 - Natural language explanation of the results
 - Cleaned tabular data
@@ -32,6 +35,18 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 The server will initialize a local SQLite database with a deliberately "dirty" schema at `data/dirty.db` on first run.
 
 ### Endpoint
+
+POST `/upload`
+
+Request:
+
+Form field `file` with the Excel file.
+
+Response:
+
+```json
+{ "dataset_id": "abc123def456", "tables": ["sheet1", "sheet2"], "note": "Parsed 2 sheet(s)" }
+```
 
 POST `/ask`
 

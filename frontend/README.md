@@ -11,6 +11,12 @@ npm run dev
 
 Open http://localhost:5173
 
+### Flow
+
+1. Upload an Excel file using the file picker at the top. This calls `POST /upload` and returns a `dataset_id`.
+2. Ask questions about the uploaded dataset; the app calls `POST /ask` with `{ question, dataset_id }`.
+3. The UI shows a brief explanation, a table, and a chart (Recharts) based on suggested chart type.
+
 ### Build
 
 ```bash
