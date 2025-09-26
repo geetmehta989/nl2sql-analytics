@@ -201,3 +201,35 @@ def ingest_excel_to_dataset(file_path: Path) -> Tuple[str, List[str]]:
             table_names.append(table_name)
 
     return dataset_id, table_names
+
+
+def ingest_json_tables_to_dataset(tables: List[Dict[str, Any]]) -> Tuple[str, List[str]]:
+    dataset_id = uuid.uuid4().hex[:12]
+    engine = get_dataset_engine(dataset_id)
+    table_names: List[str] = []
+    with engine.begin() as connection:
+        for idx, tbl in enumerate(tables):
+            name = _clean_name(tbl.get("name") or f"table_{idx+1}")
+            rows = tbl.get("rows") or []
+            if not isinstance(rows, list):
+                rows = []
+            # Build DataFrame from rows; normalize columns
+            if rows:
+                cols = set()
+                for r in rows:
+                    if isinstance(r, dict):
+                        cols.update(r.keys())
+                cols = list(cols)
+                df_rows = []
+                for r in rows:
+                    if isinstance(r, dict):
+                        df_rows.append({c: r.get(c) for c in cols})
+                df = pd.DataFrame(df_rows)
+                df.columns = [_clean_name(c) for c in df.columns]
+            else:
+                df = pd.DataFrame()
+            if df.empty:
+                df = pd.DataFrame({"col1": []})
+            df.to_sql(name, connection, index=False, if_exists="replace")
+            table_names.append(name)
+    return dataset_id, table_names

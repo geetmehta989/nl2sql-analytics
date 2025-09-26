@@ -5,7 +5,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
-from .models import AskRequest, AskResponse, UploadResponse
+from .models import AskRequest, AskResponse, UploadResponse, UploadJSONRequest
 from .db import (
     get_engine,
     get_dataset_engine,
@@ -13,6 +13,7 @@ from .db import (
     fetch_schema_snapshot,
     run_select_sql,
     ingest_excel_to_dataset,
+    ingest_json_tables_to_dataset,
 )
 from .ai import (
     generate_sql_from_question,
@@ -95,3 +96,12 @@ async def upload(file: UploadFile = File(...)) -> UploadResponse:
         return UploadResponse(dataset_id=dataset_id, tables=tables, note=f"Parsed {len(tables)} sheet(s)")
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"Failed to ingest file: {e}")
+
+
+@app.post("/upload_json", response_model=UploadResponse)
+def upload_json(body: UploadJSONRequest) -> UploadResponse:
+    try:
+        dataset_id, tables = ingest_json_tables_to_dataset([t.model_dump() for t in body.tables])
+        return UploadResponse(dataset_id=dataset_id, tables=tables, note=f"Ingested {len(tables)} table(s) from JSON")
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"Failed to ingest JSON: {e}")

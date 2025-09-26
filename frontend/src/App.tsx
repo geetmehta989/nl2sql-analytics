@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { askQuestion, AskResponse, uploadExcel, UploadResponse } from './lib/api';
+import { askQuestion, AskResponse, uploadExcel, uploadJSON, UploadResponse } from './lib/api';
+import * as XLSX from 'xlsx';
 import { DataTable } from './components/DataTable';
 import { ChartPanel } from './components/ChartPanel';
 
@@ -34,11 +35,27 @@ export const App: React.FC = () => {
   async function onUpload(file: File) {
     setLoading(true);
     try {
-      const info = await uploadExcel(file, baseUrl);
+      // Try JSON upload path to avoid serverless file upload limits
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      const tables: { name?: string; rows: Record<string, unknown>[] }[] = [];
+      for (const name of wb.SheetNames) {
+        const sheet = wb.Sheets[name];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
+        tables.push({ name, rows: rows as any[] });
+      }
+      const info = await uploadJSON(tables, baseUrl);
       setDataset(info);
       setMessages((m) => [...m, { role: 'assistant', content: `Dataset uploaded. Found ${info.tables.length} table(s).` }]);
     } catch (e: any) {
-      setMessages((m) => [...m, { role: 'assistant', content: `Upload error: ${e?.message || 'failed'}` }]);
+      // Fallback to direct file upload if JSON path fails
+      try {
+        const info2 = await uploadExcel(file, baseUrl);
+        setDataset(info2);
+        setMessages((m) => [...m, { role: 'assistant', content: `Dataset uploaded. Found ${info2.tables.length} table(s).` }]);
+      } catch (e2: any) {
+        setMessages((m) => [...m, { role: 'assistant', content: `Upload error: ${e2?.message || 'failed'}` }]);
+      }
     } finally {
       setLoading(false);
     }

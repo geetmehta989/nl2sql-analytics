@@ -33,3 +33,16 @@ export async function uploadExcel(file: File, baseUrl = DEFAULT_BASE_URL): Promi
   }
   return res.json();
 }
+
+export async function uploadJSON(tables: { name?: string; rows: Record<string, unknown>[] }[], baseUrl = DEFAULT_BASE_URL): Promise<UploadResponse> {
+  const res = await fetch(`${baseUrl}/upload_json`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tables })
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Upload JSON failed: ${res.status} ${text}`);
+  }
+  return res.json();
+}

@@ -19,3 +19,12 @@ class UploadResponse(BaseModel):
     dataset_id: str
     tables: List[str]
     note: Optional[str] = None
+
+
+class UploadTable(BaseModel):
+    name: Optional[str] = None
+    rows: List[Dict[str, Any]]
+
+
+class UploadJSONRequest(BaseModel):
+    tables: List[UploadTable] = Field(..., description="List of tables to ingest; each contains rows as array of objects")
