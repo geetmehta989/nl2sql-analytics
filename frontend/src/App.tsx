@@ -100,7 +100,7 @@ export const App: React.FC = () => {
               {loading ? 'Sending…' : 'Send'}
             </button>
           </div>
-          {lastMeta && (
+          {lastMeta && lastMeta.columns && lastMeta.data && lastMeta.chart && (
             <div className="grid2">
               <div>
                 <div className="card">
@@ -111,12 +111,12 @@ export const App: React.FC = () => {
                 </div>
               </div>
               <div>
-                <ChartPanel chart={lastMeta.chart} columns={lastMeta.columns} rows={lastMeta.data} />
+                <ChartPanel chart={lastMeta.chart as any} columns={lastMeta.columns as string[]} rows={lastMeta.data as Record<string, unknown>[]} />
               </div>
             </div>
           )}
-          {lastMeta && (
-            <DataTable columns={lastMeta.columns} rows={lastMeta.data} />
+          {lastMeta && lastMeta.columns && lastMeta.data && (
+            <DataTable columns={lastMeta.columns as string[]} rows={lastMeta.data as Record<string, unknown>[]} />
           )}
           <div className="footer">Built with React, Recharts, FastAPI, and LangChain.</div>
         </div>
